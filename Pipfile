@@ -6,7 +6,7 @@ name = "pypi"
 [packages]
 django = "==2.2.5"
 pillow = "*"
-django-countries = "*"
+django-countries = {extras = ["pyuca"], version = "*"}
 
 [dev-packages]
 flake8 = "*"
