@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.utils import timezone
 from . import models
 
 
@@ -13,11 +14,19 @@ class ProgressListFilter(admin.SimpleListFilter):
         )
 
     def queryset(self, request, queryset):
-        now = models.get_now_date()
+        now = timezone.now().date()
         if self.value() == "True":
-            return queryset.filter(check_in__lt=now, check_out__gt=now)
+            return queryset.filter(
+                status__exact=models.Reservation.STATUS_CONFIRMED,
+                check_in__lte=now,
+                check_out__gt=now,
+            )
         elif self.value() == "False":
-            return queryset.exclude(check_in__lt=now, check_out__gt=now)
+            return queryset.exclude(
+                status__exact=models.Reservation.STATUS_CONFIRMED,
+                check_in__lte=now,
+                check_out__gt=now,
+            )
 
 
 class FinishedListFilter(admin.SimpleListFilter):
@@ -31,12 +40,16 @@ class FinishedListFilter(admin.SimpleListFilter):
         )
 
     def queryset(self, request, queryset):
-        now = models.get_now_date()
+        now = timezone.now().date()
 
         if self.value() == "True":
-            return queryset.filter(check_out__lt=now)
+            return queryset.filter(check_out__lte=now) or queryset.filter(
+                status__exact=models.Reservation.STATUS_CANCELED
+            )
         elif self.value() == "False":
-            return queryset.exclude(check_out__lt=now)
+            return queryset.exclude(check_out__lte=now) and queryset.exclude(
+                status__exact=models.Reservation.STATUS_CANCELED
+            )
 
 
 @admin.register(models.Reservation)
