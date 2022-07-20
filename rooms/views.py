@@ -82,14 +82,14 @@ class SearchView(View):
                 if superhost is True:
                     filter_args["host__superhost"] = True
 
-                rooms = models.Room.objects.filter(**filter_args)
+                filtered_rooms = models.Room.objects.filter(**filter_args)
                 for amenity in amenities:
-                    rooms = rooms.filter(amenities=amenity)
+                    filtered_rooms = filtered_rooms.filter(amenities=amenity)
 
                 for facility in facilities:
-                    rooms = rooms.filter(facilities=facility)
+                    filtered_rooms = filtered_rooms.filter(facilities=facility)
 
-                qs = rooms.order_by("created")
+                qs = filtered_rooms.order_by("created")
 
                 paginator = Paginator(qs, 5, orphans=2)
 
@@ -109,6 +109,7 @@ class SearchView(View):
                     beds = ""
                 if baths is None:
                     baths = ""
+
                 current_url = f"/rooms/search/?city={city}&country={country}&room_type={room_type}&price={price}&guests={guests}&bedrooms={bedrooms}&beds={beds}&baths={baths}"
 
                 if instant_book is True:
@@ -128,7 +129,6 @@ class SearchView(View):
                     "rooms/search.html",
                     {
                         "form": form,
-                        "rooms": rooms,
                         "rooms": rooms,
                         "path": current_url,
                     },

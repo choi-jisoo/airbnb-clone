@@ -28,14 +28,13 @@
             <a href="{{path}}&page={{rooms.previous_page_number}}">Previous</a>
         {% endif %}
 
+        {% if rooms.has_other_pages %}
         Page {{rooms.number}} of {{rooms.paginator.num_pages}}
+        {% endif %}
 
         {% if rooms.has_next %}
             <a href="{{path}}&page={{rooms.next_page_number}}">Next</a>
         {% endif %}    
     </h5>
  
-
-
-
 {% endblock content %}
