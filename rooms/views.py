@@ -1,8 +1,8 @@
-from django.views.generic.list import ListView
+from django.views.generic.list import ListView, View
 from django.http import Http404
 from django.shortcuts import render
-from django_countries import countries
-from . import models
+from django.core.paginator import Paginator
+from . import models, forms
 
 
 class HomeView(ListView):
@@ -24,90 +24,117 @@ def room_detail(request, pk):
         raise Http404()
 
 
-def search(request):
-    city = request.GET.get("city", "Anywhere")
-    city = str.capitalize(city)
-    country = request.GET.get("country", "KR")
-    room_type = int(request.GET.get("room_type", 0))
-    price = int(request.GET.get("price", 0))
-    guests = int(request.GET.get("guests", 0))
-    beds = int(request.GET.get("beds", 0))
-    bedrooms = int(request.GET.get("bedrooms", 0))
-    baths = int(request.GET.get("baths", 0))
-    instant = bool(request.GET.get("instant", False))
-    superhost = bool(request.GET.get("superhost", False))
-    selected_amenities = request.GET.getlist("amenities")
-    selected_facilities = request.GET.getlist("facilities")
+class SearchView(View):
 
-    form = {
-        "city": city,
-        "selected_country": country,
-        "selected_room_type": room_type,
-        "price": price,
-        "guests": guests,
-        "beds": beds,
-        "bedrooms": bedrooms,
-        "baths": baths,
-        "instant": instant,
-        "superhost": superhost,
-        "selected_amenities": selected_amenities,
-        "selected_facilities": selected_facilities,
-    }
+    """SearchView Definition"""
 
-    room_types = models.RoomType.objects.all()
-    amenities = models.Amenity.objects.all()
-    facilities = models.Facility.objects.all()
+    def get(self, request):
 
-    choices = {
-        "countries": countries,
-        "room_types": room_types,
-        "amenities": amenities,
-        "facilities": facilities,
-    }
+        country = request.GET.get("country")
 
-    filter_args = {}
+        if country:
 
-    if city != "Anywhere":
-        filter_args["city__startswith"] = city
+            form = forms.SearchForm(request.GET)
 
-    filter_args["country"] = country
+            if form.is_valid():
 
-    if room_type != 0:
-        filter_args["room_type__pk"] = room_type
+                city = form.cleaned_data.get("city")
+                country = form.cleaned_data.get("country")
+                room_type = form.cleaned_data.get("room_type")
+                price = form.cleaned_data.get("price")
+                guests = form.cleaned_data.get("guests")
+                bedrooms = form.cleaned_data.get("bedrooms")
+                beds = form.cleaned_data.get("beds")
+                baths = form.cleaned_data.get("baths")
+                instant_book = form.cleaned_data.get("instant_book")
+                superhost = form.cleaned_data.get("superhost")
+                amenities = form.cleaned_data.get("amenities")
+                facilities = form.cleaned_data.get("facilities")
 
-    if price != 0:
-        filter_args["price__lte"] = price
+                filter_args = {}
 
-    if guests != 0:
-        filter_args["guests__gte"] = guests
+                if city != "Anywhere":
+                    filter_args["city__startswith"] = city
 
-    if beds != 0:
-        filter_args["beds__gte"] = beds
+                filter_args["country"] = country
 
-    if bedrooms != 0:
-        filter_args["bedrooms__gte"] = bedrooms
+                if room_type is not None:
+                    filter_args["room_type"] = room_type
 
-    if baths != 0:
-        filter_args["baths__gte"] = baths
+                if price is not None:
+                    filter_args["price__lte"] = price
 
-    if instant is True:
-        filter_args["instant_book"] = True
+                if guests is not None:
+                    filter_args["guests__gte"] = guests
 
-    if superhost is True:
-        filter_args["host__superhost"] = True
+                if beds is not None:
+                    filter_args["beds__gte"] = beds
 
-    if len(selected_amenities) > 0:
-        for s_a in selected_amenities:
-            filter_args["amenities__pk"] = int(s_a)
+                if bedrooms is not None:
+                    filter_args["bedrooms__gte"] = bedrooms
 
-    if len(selected_facilities) > 0:
-        for s_f in selected_facilities:
-            filter_args["facilities__pk"] = int(s_f)
+                if baths is not None:
+                    filter_args["baths__gte"] = baths
 
-    rooms = models.Room.objects.filter(**filter_args)
+                if instant_book is True:
+                    filter_args["instant_book"] = True
 
-    return render(
-        request,
-        "rooms/search.html",
-        {**form, **choices, "rooms": rooms},
-    )
+                if superhost is True:
+                    filter_args["host__superhost"] = True
+
+                rooms = models.Room.objects.filter(**filter_args)
+                for amenity in amenities:
+                    rooms = rooms.filter(amenities=amenity)
+
+                for facility in facilities:
+                    rooms = rooms.filter(facilities=facility)
+
+                qs = rooms.order_by("created")
+
+                paginator = Paginator(qs, 5, orphans=2)
+
+                page = request.GET.get("page", 1)
+
+                rooms = paginator.get_page(page)
+
+                if room_type is None:
+                    room_type = ""
+                if price is None:
+                    price = ""
+                if guests is None:
+                    guests = ""
+                if bedrooms is None:
+                    bedrooms = ""
+                if beds is None:
+                    beds = ""
+                if baths is None:
+                    baths = ""
+                current_url = f"/rooms/search/?city={city}&country={country}&room_type={room_type}&price={price}&guests={guests}&bedrooms={bedrooms}&beds={beds}&baths={baths}"
+
+                if instant_book is True:
+                    current_url = current_url + "&instant_book=on"
+                if superhost is True:
+                    current_url = current_url + "&superhost=on"
+
+                if len(amenities) > 0:
+                    for a in amenities:
+                        current_url = current_url + f"&amenities{a.pk}"
+                if len(facilities) > 0:
+                    for f in facilities:
+                        current_url = current_url + f"&facilities{f.pk}"
+
+                return render(
+                    request,
+                    "rooms/search.html",
+                    {
+                        "form": form,
+                        "rooms": rooms,
+                        "rooms": rooms,
+                        "path": current_url,
+                    },
+                )
+
+        else:
+
+            form = forms.SearchForm()
+        return render(request, "rooms/search.html", {"form": form})
